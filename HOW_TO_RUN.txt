@@ -1,0 +1,32 @@
+Country Clash Arena - How to Run
+================================
+
+Requirements:
+- Node.js installed
+- npm installed
+
+Install dependencies:
+npm install
+
+Start the local development server:
+npm run dev
+
+Then open the local URL shown in the terminal, usually:
+http://localhost:5173
+
+IMPORTANT:
+- Do not double-click index.html or dist/index.html.
+- The app must be opened through the local URL printed by npm run dev.
+- Keep the terminal running while using the app.
+
+Build for production:
+npm run build
+
+Preview the production build:
+npm run preview
+
+Then open the preview URL shown in the terminal.
+
+Notes:
+- This MVP has no backend, database, authentication, or real payments.
+- Payment/customization buttons are placeholders for future integration.

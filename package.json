@@ -1,0 +1,21 @@
+{
+  "name": "country-clash-arena",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "predev": "npm run generate:stats",
+    "dev": "vite",
+    "generate:stats": "node src/utils/generateCountryStats.js",
+    "build": "npm run generate:stats && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "d3-geo": "^3.1.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "shapefile": "^0.6.6",
+    "vite": "^6.0.5"
+  }
+}
