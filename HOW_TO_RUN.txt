@@ -22,7 +22,7 @@ IMPORTANT:
 Build for production:
 npm run build
 
-Preview the production build:
+Preview the production build:-
 npm run preview
 
 Then open the preview URL shown in the terminal.
