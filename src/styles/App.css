@@ -8,9 +8,11 @@
 }
 
 * { box-sizing: border-box; }
+html { overflow-x: hidden; }
 
 body {
   margin: 0;
+  overflow-x: hidden;
   min-width: 320px;
   min-height: 100vh;
   background:
@@ -170,6 +172,7 @@ select {
 }
 .country-picker-toolbar { margin-bottom: 9px; }
 .country-picker-toolbar > span { color: #8994b6; font-size: 0.65rem; text-transform: uppercase; }
+.country-picker-toolbar > div { display: flex; gap: 6px; }
 .show-map-button {
   padding: 6px 9px;
   color: #c8ceea;
@@ -178,6 +181,13 @@ select {
   font-size: 0.65rem;
 }
 .show-map-button:hover { border-color: var(--accent); }
+.picker-close-button {
+  display: none;
+  padding: 6px 9px;
+  color: #090b15;
+  background: linear-gradient(135deg, #93a0ff, #d490ff);
+  font-size: 0.65rem;
+}
 .country-flag-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
@@ -889,4 +899,143 @@ canvas { display: block; width: 100%; aspect-ratio: 900 / 470; background: #080b
   .creator-grid { grid-template-columns: 1fr; }
   .support-panel { align-items: flex-start; flex-direction: column; }
   .support-actions { justify-content: flex-start; }
+}
+
+/* Applied by App when a narrow viewport or coarse-pointer phone is detected. */
+.phone-layout {
+  width: 100%;
+  padding:
+    max(18px, env(safe-area-inset-top))
+    max(10px, env(safe-area-inset-right))
+    max(36px, env(safe-area-inset-bottom))
+    max(10px, env(safe-area-inset-left));
+}
+.phone-layout button,
+.phone-layout .country-picker-trigger {
+  min-height: 44px;
+}
+.phone-layout .hero {
+  margin-bottom: 24px;
+  padding-top: 38px;
+}
+.phone-layout .theme-toggle {
+  top: max(8px, env(safe-area-inset-top));
+  right: max(10px, env(safe-area-inset-right));
+  min-height: 36px;
+  padding: 6px 10px;
+}
+.phone-layout .hero-kicker { font-size: 0.61rem; letter-spacing: 0.11em; }
+.phone-layout .hero h1 { font-size: clamp(2.4rem, 14vw, 4rem); }
+.phone-layout .hero p { margin-top: 11px; padding: 0 12px; font-size: 0.82rem; line-height: 1.45; }
+.phone-layout .mode-tabs {
+  position: sticky;
+  z-index: 15;
+  top: 6px;
+  display: flex;
+  justify-content: flex-start;
+  gap: 4px;
+  width: 100%;
+  margin-bottom: 18px;
+  padding: 4px;
+  overflow-x: auto;
+  backdrop-filter: blur(12px);
+  scrollbar-width: none;
+}
+.phone-layout .mode-tabs::-webkit-scrollbar { display: none; }
+.phone-layout .mode-tabs button { flex: 0 0 auto; min-height: 40px; padding: 8px 10px; font-size: 0.76rem; }
+.phone-layout .country-panel,
+.phone-layout .world-randomizer,
+.phone-layout .spin-mode { padding: 14px; border-radius: 14px; }
+.phone-layout .panel-heading h2 { font-size: 1.08rem; }
+.phone-layout .power-score { width: 42px; height: 42px; flex: 0 0 auto; }
+.phone-layout .country-select { margin: 16px 0; }
+.phone-layout .country-picker-popover {
+  position: fixed;
+  z-index: 80;
+  top: auto;
+  right: max(8px, env(safe-area-inset-right));
+  bottom: max(8px, env(safe-area-inset-bottom));
+  left: max(8px, env(safe-area-inset-left));
+  display: flex;
+  flex-direction: column;
+  width: auto;
+  max-height: min(82vh, 720px);
+  max-height: min(82dvh, 720px);
+  padding: 12px;
+  border-radius: 18px;
+  box-shadow: 0 -14px 60px rgba(0, 0, 0, 0.72);
+}
+.phone-layout .country-picker-popover::before {
+  position: absolute;
+  top: -200vh;
+  right: -20px;
+  bottom: -20px;
+  left: -20px;
+  z-index: -1;
+  background: rgba(3, 5, 14, 0.7);
+  content: "";
+  backdrop-filter: blur(4px);
+}
+.phone-layout .country-picker-toolbar { margin-bottom: 8px; }
+.phone-layout .picker-close-button { display: block; }
+.phone-layout .country-flag-grid {
+  flex: 1 1 auto;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  min-height: 0;
+  max-height: none;
+  overscroll-behavior: contain;
+}
+.phone-layout .country-flag-option { height: 48px; font-size: 1.6rem; touch-action: manipulation; }
+.phone-layout .country-flag-option::after { display: none; }
+.phone-layout .classic-picker-map { max-height: 31dvh; overflow: hidden; }
+.phone-layout .classic-picker-map svg { max-height: calc(31dvh - 31px); }
+.phone-layout .skill-row { grid-template-columns: 70px minmax(0, 1fr) 28px; gap: 7px; }
+.phone-layout .skill-row span { font-size: 0.69rem; }
+.phone-layout input[type="range"] { min-height: 28px; }
+.phone-layout .battle-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 18px 0 24px; }
+.phone-layout .battle-controls .primary-button { grid-column: 1 / -1; }
+.phone-layout .world-actions { display: grid; width: 100%; }
+.phone-layout .world-actions button { width: 100%; }
+.phone-layout .map-wrap { border-radius: 11px; }
+.phone-layout .spin-heading { gap: 12px; margin-bottom: 14px; }
+.phone-layout .spin-heading h2 { font-size: 1.35rem; }
+.phone-layout .spin-mode { overflow: hidden; }
+.phone-layout .wheel-stage { min-height: 360px; padding: 12px; }
+.phone-layout .wheel-wrap,
+.phone-layout .wheel-stage.dual .wheel-wrap { width: min(310px, 78vw); }
+.phone-layout .spin-wheel { border-width: 6px; }
+.phone-layout .wheel-center { inset: 30%; padding: 8px; }
+.phone-layout .wheel-center strong { font-size: 0.7rem; }
+.phone-layout .mini-spin-map,
+.phone-layout .wheel-stage.dual .mini-spin-map { width: min(310px, 100%); margin-top: 14px; }
+.phone-layout .arena-shell { border-radius: 13px; }
+.phone-layout .arena-header { grid-template-columns: 1fr 1fr; gap: 6px; padding: 9px; font-size: 0.6rem; }
+.phone-layout .arena-header > div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.phone-layout .arena-header > div:last-child { text-align: right; }
+.phone-layout .live-pill { grid-column: 1 / -1; grid-row: 1; width: fit-content; margin: 0 auto 2px; }
+.phone-layout .arena-stat-preview { display: none; }
+.phone-layout .battle-health-bars { gap: 7px; padding: 8px; }
+.phone-layout .battle-health > div:first-child { font-size: 0.57rem; }
+.phone-layout .battle-health > div:first-child strong { overflow: hidden; max-width: 48%; text-overflow: ellipsis; white-space: nowrap; }
+.phone-layout .health-track { height: 10px; }
+.phone-layout canvas { min-height: 220px; object-fit: cover; }
+.phone-layout .arena-empty { inset: 142px 0 0; padding: 16px; }
+.phone-layout .arena-empty h2 { font-size: 1.05rem; }
+.phone-layout .battle-countdown { width: 112px; height: 112px; font-size: 4.3rem; }
+.phone-layout .winner-reveal { padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+.phone-layout .result-panel { max-height: calc(100dvh - 16px); }
+.phone-layout .result-panel h2 { font-size: clamp(2.3rem, 15vw, 4rem); overflow-wrap: anywhere; }
+.phone-layout .winner-declaration { font-size: clamp(1.8rem, 12vw, 3rem); }
+.phone-layout .creator-grid { display: none; }
+.phone-layout .support-panel { padding: 16px; }
+.phone-layout .support-actions { display: grid; width: 100%; }
+.phone-layout .support-actions button { width: 100%; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

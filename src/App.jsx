@@ -18,6 +18,7 @@ export default function App() {
   const [activeMode, setActiveMode] = useState('classic')
   const [countdown, setCountdown] = useState(null)
   const [theme, setTheme] = useState(() => localStorage.getItem('country-clash-theme') ?? 'dark')
+  const [phoneLayout, setPhoneLayout] = useState(false)
   const battleSequence = useRef(0)
   const countdownTimer = useRef(null)
   const arenaRef = useRef(null)
@@ -53,6 +54,17 @@ export default function App() {
   }, [])
 
   useEffect(() => () => clearInterval(countdownTimer.current), [])
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 600px), (max-width: 820px) and (pointer: coarse)')
+    const updatePhoneLayout = () => setPhoneLayout(query.matches)
+    updatePhoneLayout()
+    if (query.addEventListener) query.addEventListener('change', updatePhoneLayout)
+    else query.addListener(updatePhoneLayout)
+    return () => {
+      if (query.removeEventListener) query.removeEventListener('change', updatePhoneLayout)
+      else query.removeListener(updatePhoneLayout)
+    }
+  }, [])
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     localStorage.setItem('country-clash-theme', theme)
@@ -98,7 +110,7 @@ export default function App() {
   const loser = winnerSide === 'A' ? countryB : countryA
 
   return (
-    <main>
+    <main className={phoneLayout ? 'phone-layout' : ''}>
       <header className="hero">
         <button className="theme-toggle" onClick={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}>
           {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}

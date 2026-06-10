@@ -145,9 +145,12 @@ export default function CountryPanel({ label, config, onChange, accent }) {
           <div className="country-picker-popover">
             <div className="country-picker-toolbar">
               <span>{allCountries.length} countries</span>
-              <button className="show-map-button" type="button" onClick={() => setMapOpen((open) => !open)}>
-                {mapOpen ? 'Hide map' : 'Show map'}
-              </button>
+              <div>
+                <button className="show-map-button" type="button" onClick={() => setMapOpen((open) => !open)}>
+                  {mapOpen ? 'Hide map' : 'Show map'}
+                </button>
+                <button className="picker-close-button" type="button" onClick={() => setPickerOpen(false)}>Done</button>
+              </div>
             </div>
 
             {mapOpen && (
@@ -174,6 +177,7 @@ export default function CountryPanel({ label, config, onChange, accent }) {
                   onMouseLeave={() => setHoveredCountry(null)}
                   onFocus={() => setHoveredCountry(item.name)}
                   onBlur={() => setHoveredCountry(null)}
+                  onTouchStart={() => setHoveredCountry(item.name)}
                 >
                   <span aria-hidden="true">{flagsByName[item.name] ?? '🌍'}</span>
                 </button>
