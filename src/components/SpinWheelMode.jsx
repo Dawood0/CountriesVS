@@ -108,7 +108,7 @@ function MiniSpinMap({ activeCountry, onMapLoaded, side, spinning }) {
   )
 }
 
-function Wheel({ step, state, spinning, reveal }) {
+function Wheel({ step, state, spinning, reveal, onSpin }) {
   const segments = wheelSegments(state.options)
   const isCountry = step.type === 'country'
   const labelInterval = Math.ceil(state.options.length / 18)
@@ -123,7 +123,17 @@ function Wheel({ step, state, spinning, reveal }) {
             return <span className={isCountry ? 'wheel-option country-option' : 'wheel-option'} key={label} title={label} style={{ transform: `rotate(${segments[index].center}deg) translateY(${isCountry ? '-156px' : '-132px'}) rotate(90deg)`, visibility: show ? 'visible' : 'hidden' }}>{label}</span>
           })}
         </div>
-        <div className="wheel-center"><span>Country {step.side === 'A' ? '1' : '2'}</span><strong>{state.label}</strong>{isCountry && <small>{state.options.length} countries</small>}</div>
+        <button
+          className="wheel-center"
+          type="button"
+          onClick={onSpin}
+          disabled={spinning || !onSpin}
+          aria-label={spinning ? 'Wheel is spinning' : `Spin ${step.label}`}
+        >
+          <span>Country {step.side === 'A' ? '1' : '2'}</span>
+          <strong>{state.label}</strong>
+          {isCountry && <small>{state.options.length} countries</small>}
+        </button>
         {reveal && <div className="spin-reveal-card" style={{ '--reveal-color': sideColor(step.side) }}><span className="reveal-kicker">{reveal.title}</span><div className={reveal.flag ? 'reveal-icon flag' : 'reveal-icon'}>{reveal.flag ?? '★'}</div><strong>{reveal.primary}</strong><small>{reveal.secondary}</small><span className="reveal-next">Click next spin to continue</span></div>}
       </div>
     </div>
@@ -259,7 +269,7 @@ export default function SpinWheelMode({ onStartBattle }) {
       <div className="spin-side-key"><span className="side-a">Country 1: {results.countryA?.name ?? 'Not selected'}</span><span className="side-b">Country 2: {results.countryB?.name ?? 'Not selected'}</span></div>
       <div className="spin-layout">
         <div className={wheelMode === 'two' ? 'wheel-stage dual' : 'wheel-stage'}>
-          <div className="active-wheels">{displayGroup.map((step) => <div className="active-wheel-column" key={step.key}><Wheel step={step} state={wheelState[step.side]} spinning={spinning} reveal={reveals[step.side]} />{step.type === 'country' && <MiniSpinMap activeCountry={wheelState[step.side].map} side={step.side} spinning={spinning} onMapLoaded={(mapped, flags) => { setMappedCountries(mapped); setCountryFlags(flags) }} />}</div>)}</div>
+          <div className="active-wheels">{displayGroup.map((step) => <div className="active-wheel-column" key={step.key}><Wheel step={step} state={wheelState[step.side]} spinning={spinning} reveal={reveals[step.side]} onSpin={!hasReveals && !complete ? spinCurrent : null} />{step.type === 'country' && <MiniSpinMap activeCountry={wheelState[step.side].map} side={step.side} spinning={spinning} onMapLoaded={(mapped, flags) => { setMappedCountries(mapped); setCountryFlags(flags) }} />}</div>)}</div>
           {hasReveals && !complete ? (
             <button className="primary-button spin-button next-spin-button" onClick={goToNextSpin}>Next Spin</button>
           ) : !complete ? (

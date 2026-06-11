@@ -4,7 +4,7 @@ function topSkill(config) {
   return Object.entries(config.skills).sort((a, b) => b[1] - a[1])[0][0]
 }
 
-export default function ResultPanel({ winner, loser, onRematch }) {
+export default function ResultPanel({ winner, loser, onRematch, videoIdea }) {
   const skill = topSkill(winner)
   const [visible, setVisible] = useState(true)
 
@@ -38,6 +38,7 @@ export default function ResultPanel({ winner, loser, onRematch }) {
           <button className="primary-button compact" onClick={onRematch}>Run Rematch</button>
           <button className="secondary-button" onClick={() => setVisible(false)}>Watch Celebration</button>
         </div>
+        {videoIdea && <p className="commander-video-idea"><span>Video Idea</span>{videoIdea}</p>}
 
         <div className="creator-grid">
           <div>

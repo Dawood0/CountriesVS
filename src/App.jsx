@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import BattleArena from './components/BattleArena'
+import CommanderMode, { CommanderControls } from './components/CommanderMode'
 import CountryPanel from './components/CountryPanel'
 import MonetizationPanel from './components/MonetizationPanel'
 import ResultPanel from './components/ResultPanel'
@@ -19,9 +20,13 @@ export default function App() {
   const [countdown, setCountdown] = useState(null)
   const [theme, setTheme] = useState(() => localStorage.getItem('country-clash-theme') ?? 'dark')
   const [phoneLayout, setPhoneLayout] = useState(false)
+  const [runningMode, setRunningMode] = useState('standard')
+  const [commanderStatus, setCommanderStatus] = useState(null)
+  const [lastCommanderEvent, setLastCommanderEvent] = useState(null)
   const battleSequence = useRef(0)
   const countdownTimer = useRef(null)
   const arenaRef = useRef(null)
+  const commanderAction = useRef(null)
 
   const countryA = useMemo(
     () => ({ ...(countries.find((country) => country.id === configA.countryId) ?? configA), skills: configA.skills }),
@@ -32,9 +37,13 @@ export default function App() {
     [configB],
   )
 
-  const startBattle = useCallback(() => {
+  const beginBattle = useCallback((mode) => {
     clearInterval(countdownTimer.current)
     setWinnerSide(null)
+    setRunningMode(mode)
+    commanderAction.current = null
+    setCommanderStatus(null)
+    setLastCommanderEvent(null)
     setBattleId(0)
     setCountdown(3)
     requestAnimationFrame(() => arenaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
@@ -52,6 +61,8 @@ export default function App() {
       setBattleId(battleSequence.current)
     }, 1000)
   }, [])
+  const startBattle = useCallback(() => beginBattle('standard'), [beginBattle])
+  const startCommanderBattle = useCallback(() => beginBattle('commander'), [beginBattle])
 
   useEffect(() => () => clearInterval(countdownTimer.current), [])
   useEffect(() => {
@@ -82,6 +93,9 @@ export default function App() {
     setConfigB(makeCountryConfig(shuffled[1].id))
     setWinnerSide(null)
     setBattleId(0)
+    setRunningMode('standard')
+    setCommanderStatus(null)
+    setLastCommanderEvent(null)
   }
 
   function reset() {
@@ -90,6 +104,9 @@ export default function App() {
     setConfigB(initialB())
     setWinnerSide(null)
     setBattleId(0)
+    setRunningMode('standard')
+    setCommanderStatus(null)
+    setLastCommanderEvent(null)
   }
 
   function lockWorldCountries(worldA, worldB) {
@@ -98,12 +115,20 @@ export default function App() {
     setConfigB(worldB)
     setWinnerSide(null)
     setBattleId(0)
+    setRunningMode('standard')
+    setCommanderStatus(null)
+    setLastCommanderEvent(null)
   }
 
   function startSpinBattle(spinA, spinB) {
     setConfigA(spinA)
     setConfigB(spinB)
     startBattle()
+  }
+
+  function useCommanderPowerUp(side, powerUp) {
+    const result = commanderAction.current?.(side, powerUp)
+    if (result?.ok) setLastCommanderEvent(result)
   }
 
   const winner = winnerSide === 'A' ? countryA : countryB
@@ -124,6 +149,7 @@ export default function App() {
         <button className={activeMode === 'classic' ? 'active' : ''} onClick={() => setActiveMode('classic')}>Classic Battle</button>
         <button className={activeMode === 'world' ? 'active' : ''} onClick={() => setActiveMode('world')}>Random World Battle</button>
         <button className={activeMode === 'spin' ? 'active' : ''} onClick={() => setActiveMode('spin')}>Spin Wheel Mode</button>
+        <button className={activeMode === 'commander' ? 'active' : ''} onClick={() => setActiveMode('commander')}>Commander Mode</button>
       </nav>
 
       {activeMode === 'classic' && (
@@ -148,6 +174,20 @@ export default function App() {
 
       {activeMode === 'spin' && <SpinWheelMode onStartBattle={startSpinBattle} />}
 
+      {activeMode === 'commander' && (
+        <CommanderMode
+          configA={configA}
+          configB={configB}
+          countryA={countryA}
+          countryB={countryB}
+          onChangeA={setConfigA}
+          onChangeB={setConfigB}
+          onStart={startCommanderBattle}
+          battleActive={runningMode === 'commander' && Boolean(battleId)}
+          countdown={runningMode === 'commander' ? countdown : null}
+        />
+      )}
+
       <div ref={arenaRef} className="arena-anchor">
         <BattleArena
           battleId={battleId}
@@ -155,10 +195,37 @@ export default function App() {
           countryB={countryB}
           onFinish={setWinnerSide}
           countdown={countdown}
+          commanderMode={runningMode === 'commander'}
+          onCommanderReady={(action) => { commanderAction.current = action }}
+          onCommanderStatus={setCommanderStatus}
         />
       </div>
 
-      {winnerSide && <ResultPanel winner={winner} loser={loser} onRematch={startBattle} />}
+      {activeMode === 'commander' && (
+        <CommanderControls
+          countryA={countryA}
+          countryB={countryB}
+          onPowerUp={useCommanderPowerUp}
+          status={commanderStatus ?? undefined}
+          battleActive={runningMode === 'commander' && Boolean(battleId)}
+          lastEvent={lastCommanderEvent}
+        />
+      )}
+
+      {winnerSide && (
+        <ResultPanel
+          winner={winner}
+          loser={loser}
+          onRematch={runningMode === 'commander' ? startCommanderBattle : startBattle}
+          videoIdea={runningMode === 'commander'
+            ? lastCommanderEvent?.powerUp === 'reinforcements'
+              ? `I saved ${winner.name} with last-second reinforcements!`
+              : lastCommanderEvent?.powerUp === 'tech'
+                ? `${winner.name} survived because of a Tech Blast!`
+                : 'This battle changed after one Chaos Event...'
+            : null}
+        />
+      )}
       <MonetizationPanel />
     </main>
   )

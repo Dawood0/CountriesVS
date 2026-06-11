@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { createBattle, stepBattle } from '../utils/battleLogic'
+import { applyCommanderPowerUp, createBattle, getCommanderStatus, stepBattle } from '../utils/battleLogic'
 import { skillNames } from '../utils/countries'
 
 const WIDTH = 900
@@ -70,7 +70,8 @@ function drawFighters(ctx, state, colors) {
   for (const fighter of state.fighters) {
     const color = colors[fighter.side]
     const dotSize = state.configs[fighter.side].skills.dotSize ?? 55
-    const radius = 2 + (dotSize / 100) * 6
+    const giantMultiplier = fighter.commanderGiantUntil > state.elapsed ? 2.5 : 1
+    const radius = (2 + (dotSize / 100) * 6) * giantMultiplier
     ctx.shadowBlur = fighter.glow > 0 ? 24 : 12
     ctx.shadowColor = color
     ctx.fillStyle = color
@@ -102,6 +103,39 @@ function drawEffects(ctx, effects, colors) {
       ctx.lineTo(effect.targetX, effect.targetY)
       ctx.stroke()
       ctx.shadowBlur = 0
+      continue
+    }
+    if (effect.type === 'commanderText') {
+      ctx.globalAlpha = alpha
+      ctx.fillStyle = colors[effect.side]
+      ctx.shadowBlur = 18
+      ctx.shadowColor = colors[effect.side]
+      ctx.font = '900 22px system-ui'
+      ctx.fillText(effect.label, effect.x, effect.y - progress * 34)
+      ctx.shadowBlur = 0
+      continue
+    }
+    if (effect.type === 'commanderBlast' || effect.type === 'meteor') {
+      const radius = effect.type === 'meteor' ? 26 + progress * 95 : 18 + progress * 145
+      const gradient = ctx.createRadialGradient(effect.x, effect.y, 2, effect.x, effect.y, radius)
+      gradient.addColorStop(0, '#ffffff')
+      gradient.addColorStop(0.2, effect.type === 'meteor' ? '#ff9f43' : colors[effect.side])
+      gradient.addColorStop(1, 'rgba(255, 73, 108, 0)')
+      ctx.globalAlpha = alpha
+      ctx.fillStyle = gradient
+      ctx.beginPath()
+      ctx.arc(effect.x, effect.y, radius, 0, Math.PI * 2)
+      ctx.fill()
+      continue
+    }
+    if (effect.type === 'confetti') {
+      ctx.globalAlpha = alpha
+      for (let index = 0; index < 22; index += 1) {
+        const angle = index * 2.4
+        const distance = progress * 150 + (index % 4) * 9
+        ctx.fillStyle = ['#ff496c', '#7c8cff', '#52e681', '#ffc857'][index % 4]
+        ctx.fillRect(effect.x + Math.cos(angle) * distance, effect.y + Math.sin(angle) * distance, 5, 9)
+      }
       continue
     }
     if (effect.type === 'tech') {
@@ -182,9 +216,20 @@ function stepVictoryFormation(state, delta, celebrationTime) {
   return [{ type: 'laser', side: state.winner, x: shooter.x, y: shooter.y, targetX, targetY, age: 0, duration: 0.22 }]
 }
 
-export default function BattleArena({ battleId, countdown, countryA, countryB, onFinish }) {
+export default function BattleArena({
+  battleId,
+  countdown,
+  countryA,
+  countryB,
+  onFinish,
+  commanderMode = false,
+  onCommanderReady,
+  onCommanderStatus,
+}) {
   const canvasRef = useRef(null)
   const finishRef = useRef(onFinish)
+  const commanderReadyRef = useRef(onCommanderReady)
+  const commanderStatusRef = useRef(onCommanderStatus)
   const [counts, setCounts] = useState({ A: 0, B: 0 })
   const [health, setHealth] = useState({ A: { current: 0, max: 1 }, B: { current: 0, max: 1 } })
   const [victorySide, setVictorySide] = useState(null)
@@ -192,12 +237,16 @@ export default function BattleArena({ battleId, countdown, countryA, countryB, o
   useEffect(() => {
     finishRef.current = onFinish
   }, [onFinish])
+  useEffect(() => {
+    commanderReadyRef.current = onCommanderReady
+    commanderStatusRef.current = onCommanderStatus
+  }, [onCommanderReady, onCommanderStatus])
 
   useEffect(() => {
     if (!battleId) return undefined
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
-    const state = createBattle(countryA, countryB, WIDTH, HEIGHT)
+    const state = createBattle(countryA, countryB, WIDTH, HEIGHT, { commanderMode })
     setVictorySide(null)
     const colors = { A: countryA.color, B: countryB.color }
     let effects = []
@@ -207,6 +256,22 @@ export default function BattleArena({ battleId, countdown, countryA, countryB, o
     let shake = 0
     let announcedWinner = false
     let celebrationTime = 0
+
+    if (commanderMode) {
+      commanderReadyRef.current?.((side, powerUp) => {
+        const result = applyCommanderPowerUp(state, side, powerUp)
+        if (result.ok) {
+          effects.push(...result.events.map((event) => ({
+            ...event,
+            age: 0,
+            duration: event.type === 'commanderText' ? 1.1 : event.type === 'confetti' ? 1.4 : 0.9,
+          })))
+          commanderStatusRef.current?.(getCommanderStatus(state))
+        }
+        return result
+      })
+      commanderStatusRef.current?.(getCommanderStatus(state))
+    }
 
     function frame(time) {
       const delta = (time - previousTime) / 1000
@@ -231,6 +296,7 @@ export default function BattleArena({ battleId, countdown, countryA, countryB, o
           B: state.fighters.filter((fighter) => fighter.side === 'B').length,
         })
         setHealth(summarizeHealth(state))
+        if (commanderMode) commanderStatusRef.current?.(getCommanderStatus(state))
       }
 
       ctx.save()
@@ -263,8 +329,11 @@ export default function BattleArena({ battleId, countdown, countryA, countryB, o
     })
     setHealth({ A: { current: state.initialHealth.A, max: state.initialHealth.A }, B: { current: state.initialHealth.B, max: state.initialHealth.B } })
     animationFrame = requestAnimationFrame(frame)
-    return () => cancelAnimationFrame(animationFrame)
-  }, [battleId, countryA, countryB])
+    return () => {
+      cancelAnimationFrame(animationFrame)
+      if (commanderMode) commanderReadyRef.current?.(null)
+    }
+  }, [battleId, countryA, countryB, commanderMode])
 
   return (
     <section className="arena-shell">
