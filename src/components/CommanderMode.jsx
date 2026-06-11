@@ -1,5 +1,5 @@
 import CountryPanel from './CountryPanel'
-import { commanderPowerUps } from '../utils/battleLogic'
+import { commanderPowerUps, commanderTapModes } from '../utils/battleLogic'
 
 const powerUps = [
   { id: 'reinforcements', icon: '+', name: 'Reinforcements', description: 'Deploy 5-15 new fighters.' },
@@ -8,6 +8,15 @@ const powerUps = [
   { id: 'heal', icon: '♥', name: 'Heal Swarm', description: 'Restore surviving fighters.' },
   { id: 'tech', icon: '✦', name: 'Tech Blast', description: 'Strike an enemy cluster.' },
   { id: 'chaos', icon: '?', name: 'Chaos Meme Event', description: 'Trigger a random disaster.' },
+]
+
+const tapModes = [
+  { id: 'deploy', icon: '+', name: 'Deploy Troops' },
+  { id: 'rally', icon: '◎', name: 'Rally Point' },
+  { id: 'healZone', icon: '♥', name: 'Heal Zone' },
+  { id: 'airStrike', icon: '⌖', name: 'Air Strike' },
+  { id: 'trap', icon: '◇', name: 'Trap Zone' },
+  { id: 'chaosTap', icon: '?', name: 'Chaos Tap' },
 ]
 
 const emptyStatus = {
@@ -62,14 +71,38 @@ export function CommanderControls({
   status = emptyStatus,
   battleActive,
   lastEvent,
+  selectedTapMode,
+  onSelectTapMode,
 }) {
   const canCommand = battleActive && !status.finished
 
   return (
     <section className="commander-live-panel commander-live-below">
+      <div className="commander-tap-panel">
+        <div>
+          <span className="eyebrow">Arena Tap Mode</span>
+          <strong>Tap the arena to command the battle.</strong>
+        </div>
+        <div className="commander-tap-modes" role="radiogroup" aria-label="Commander arena tap mode">
+          {tapModes.map((mode) => (
+            <button
+              className={selectedTapMode === mode.id ? 'commander-tap-mode active' : 'commander-tap-mode'}
+              type="button"
+              role="radio"
+              aria-checked={selectedTapMode === mode.id}
+              key={mode.id}
+              onClick={() => onSelectTapMode(mode.id)}
+            >
+              <span>{mode.icon}</span>
+              <strong>{mode.name}</strong>
+              <small>{commanderTapModes[mode.id].cost} EP</small>
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="commander-live-heading">
         <div><span className="eyebrow">Live Command Deck</span><h3>{canCommand ? 'Spend energy now' : 'Start the battle to unlock power-ups'}</h3></div>
-        <strong>{lastEvent?.detail ?? 'Energy charges automatically during battle.'}</strong>
+        <strong>{lastEvent?.detail ?? status.lastPowerUp?.detail ?? 'Energy charges automatically during battle.'}</strong>
       </div>
       <div className="commander-sides">
         <CommanderSide side="A" country={countryA} status={status} canCommand={canCommand} onPowerUp={onPowerUp} />

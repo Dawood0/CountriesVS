@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { applyCommanderPowerUp, createBattle, getCommanderStatus, stepBattle } from '../utils/battleLogic'
+import { applyCommanderPowerUp, applyCommanderTapAction, createBattle, getCommanderStatus, stepBattle } from '../utils/battleLogic'
 import { skillNames } from '../utils/countries'
 
 const WIDTH = 900
@@ -82,6 +82,48 @@ function drawFighters(ctx, state, colors) {
   ctx.shadowBlur = 0
 }
 
+function drawCommanderZones(ctx, state, colors) {
+  if (!state.commander) return
+  const now = state.elapsed
+  for (const side of ['A', 'B']) {
+    const rally = state.commander.rally[side]
+    if (rally && now < rally.until) {
+      ctx.globalAlpha = 0.72
+      ctx.strokeStyle = colors[side]
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.arc(rally.x, rally.y, 18 + Math.sin(now * 7) * 5, 0, Math.PI * 2)
+      ctx.moveTo(rally.x - 9, rally.y)
+      ctx.lineTo(rally.x + 9, rally.y)
+      ctx.moveTo(rally.x, rally.y - 9)
+      ctx.lineTo(rally.x, rally.y + 9)
+      ctx.stroke()
+    }
+  }
+  for (const zone of state.commander.zones) {
+    const pulse = Math.sin(now * 8) * 4
+    ctx.globalAlpha = zone.type === 'airStrike' ? 0.78 : 0.46
+    ctx.lineWidth = zone.type === 'airStrike' ? 3 : 2
+    ctx.setLineDash(zone.type === 'airStrike' ? [8, 7] : [])
+    ctx.strokeStyle = zone.type === 'heal' ? '#52e681' : zone.type === 'trap' ? '#c084fc' : '#ff496c'
+    ctx.fillStyle = zone.type === 'heal' ? 'rgba(82, 230, 129, 0.08)' : zone.type === 'trap' ? 'rgba(192, 132, 252, 0.08)' : 'rgba(255, 73, 108, 0.08)'
+    ctx.beginPath()
+    ctx.arc(zone.x, zone.y, zone.radius + pulse, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+    if (zone.type === 'airStrike' && !zone.exploded) {
+      ctx.beginPath()
+      ctx.moveTo(zone.x - 14, zone.y)
+      ctx.lineTo(zone.x + 14, zone.y)
+      ctx.moveTo(zone.x, zone.y - 14)
+      ctx.lineTo(zone.x, zone.y + 14)
+      ctx.stroke()
+    }
+    ctx.setLineDash([])
+  }
+  ctx.globalAlpha = 1
+}
+
 function drawEffects(ctx, effects, colors) {
   ctx.textAlign = 'center'
   ctx.font = '800 15px system-ui'
@@ -115,11 +157,36 @@ function drawEffects(ctx, effects, colors) {
       ctx.shadowBlur = 0
       continue
     }
-    if (effect.type === 'commanderBlast' || effect.type === 'meteor') {
-      const radius = effect.type === 'meteor' ? 26 + progress * 95 : 18 + progress * 145
+    if (effect.type === 'targetMarker' || effect.type === 'portal') {
+      ctx.globalAlpha = alpha
+      ctx.strokeStyle = colors[effect.side]
+      ctx.shadowBlur = effect.type === 'portal' ? 24 : 0
+      ctx.shadowColor = colors[effect.side]
+      ctx.lineWidth = effect.type === 'portal' ? 4 : 2
+      ctx.beginPath()
+      ctx.arc(effect.x, effect.y, effect.type === 'portal' ? 52 * (1 - progress) + 8 : 8 + progress * 28, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.shadowBlur = 0
+      continue
+    }
+    if (effect.type === 'lightning') {
+      ctx.globalAlpha = alpha
+      ctx.strokeStyle = '#ffffff'
+      ctx.shadowBlur = 18
+      ctx.shadowColor = colors[effect.side]
+      ctx.lineWidth = 4
+      ctx.beginPath()
+      ctx.moveTo(effect.x - 35, 0)
+      for (let segment = 1; segment <= 7; segment += 1) ctx.lineTo(effect.x + randomBetween(-24, 24), (effect.y / 7) * segment)
+      ctx.stroke()
+      ctx.shadowBlur = 0
+      continue
+    }
+    if (effect.type === 'commanderBlast' || effect.type === 'meteor' || effect.type === 'airStrikeExplosion' || effect.type === 'shockwave') {
+      const radius = effect.type === 'meteor' ? 26 + progress * 95 : effect.type === 'shockwave' ? 12 + progress * 170 : 18 + progress * 145
       const gradient = ctx.createRadialGradient(effect.x, effect.y, 2, effect.x, effect.y, radius)
       gradient.addColorStop(0, '#ffffff')
-      gradient.addColorStop(0.2, effect.type === 'meteor' ? '#ff9f43' : colors[effect.side])
+      gradient.addColorStop(0.2, effect.type === 'meteor' || effect.type === 'airStrikeExplosion' ? '#ff9f43' : colors[effect.side])
       gradient.addColorStop(1, 'rgba(255, 73, 108, 0)')
       ctx.globalAlpha = alpha
       ctx.fillStyle = gradient
@@ -223,13 +290,19 @@ export default function BattleArena({
   countryB,
   onFinish,
   commanderMode = false,
+  commanderInteractionEnabled = commanderMode,
+  selectedTapMode = 'deploy',
   onCommanderReady,
   onCommanderStatus,
+  onCommanderEvent,
 }) {
   const canvasRef = useRef(null)
   const finishRef = useRef(onFinish)
   const commanderReadyRef = useRef(onCommanderReady)
   const commanderStatusRef = useRef(onCommanderStatus)
+  const selectedTapModeRef = useRef(selectedTapMode)
+  const commanderEventRef = useRef(onCommanderEvent)
+  const arenaTapRef = useRef(null)
   const [counts, setCounts] = useState({ A: 0, B: 0 })
   const [health, setHealth] = useState({ A: { current: 0, max: 1 }, B: { current: 0, max: 1 } })
   const [victorySide, setVictorySide] = useState(null)
@@ -241,6 +314,12 @@ export default function BattleArena({
     commanderReadyRef.current = onCommanderReady
     commanderStatusRef.current = onCommanderStatus
   }, [onCommanderReady, onCommanderStatus])
+  useEffect(() => {
+    selectedTapModeRef.current = selectedTapMode
+  }, [selectedTapMode])
+  useEffect(() => {
+    commanderEventRef.current = onCommanderEvent
+  }, [onCommanderEvent])
 
   useEffect(() => {
     if (!battleId) return undefined
@@ -271,6 +350,18 @@ export default function BattleArena({
         return result
       })
       commanderStatusRef.current?.(getCommanderStatus(state))
+      arenaTapRef.current = (x, y) => {
+        const side = x < state.width / 2 ? 'A' : 'B'
+        const result = applyCommanderTapAction(state, side, selectedTapModeRef.current, x, y)
+        effects.push(...result.events.map((event) => ({
+          ...event,
+          age: 0,
+          duration: event.type === 'commanderText' ? 1.15 : event.type === 'lightning' ? 0.42 : 0.85,
+        })))
+        if (result.ok) commanderStatusRef.current?.(getCommanderStatus(state))
+        if (result.ok) commanderEventRef.current?.(result)
+        return result
+      }
     }
 
     function frame(time) {
@@ -286,7 +377,7 @@ export default function BattleArena({
       effects.push(...newEffects)
       effects.forEach((effect) => { effect.age += delta })
       effects = effects.filter((effect) => effect.age < effect.duration)
-      if (newEffects.some((effect) => effect.type === 'critical' || effect.type === 'tech')) shake = 7
+      if (newEffects.some((effect) => effect.type === 'critical' || effect.type === 'tech' || effect.type === 'airStrikeExplosion')) shake = 7
 
       countTimer += delta
       if (countTimer > 0.25) {
@@ -305,6 +396,7 @@ export default function BattleArena({
         shake *= 0.82
       }
       drawBackground(ctx)
+      drawCommanderZones(ctx, state, colors)
       drawFighters(ctx, state, colors)
       drawEffects(ctx, effects, colors)
       ctx.restore()
@@ -331,9 +423,18 @@ export default function BattleArena({
     animationFrame = requestAnimationFrame(frame)
     return () => {
       cancelAnimationFrame(animationFrame)
+      arenaTapRef.current = null
       if (commanderMode) commanderReadyRef.current?.(null)
     }
   }, [battleId, countryA, countryB, commanderMode])
+
+  function handleArenaPointer(event) {
+    if (!commanderInteractionEnabled || !battleId || victorySide || !arenaTapRef.current) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    const x = ((event.clientX - rect.left) / rect.width) * WIDTH
+    const y = ((event.clientY - rect.top) / rect.height) * HEIGHT
+    arenaTapRef.current(x, y)
+  }
 
   return (
     <section className="arena-shell">
@@ -359,7 +460,14 @@ export default function BattleArena({
           )
         })}
       </div>
-      <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} aria-label="Animated battle arena" />
+      <canvas
+        ref={canvasRef}
+        width={WIDTH}
+        height={HEIGHT}
+        className={commanderInteractionEnabled && battleId && !victorySide ? 'commander-arena-active' : ''}
+        aria-label={commanderMode ? 'Interactive commander battle arena. Tap to command the battle.' : 'Animated battle arena'}
+        onPointerDown={handleArenaPointer}
+      />
       {!battleId && (
         <div className="arena-empty">
           {countdown ? (

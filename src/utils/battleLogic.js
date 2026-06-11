@@ -1,7 +1,7 @@
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value))
 const randomBetween = (min, max) => min + Math.random() * (max - min)
 
-function createFighters(side, skills, width, height, requestedCount, idStart = 0) {
+function createFighters(side, skills, width, height, requestedCount, idStart = 0, spawnPoint = null) {
   const count = requestedCount ?? Math.round(12 + skills.population * 0.48)
   const isLeft = side === 'A'
   const maxHealth = 48 + skills.defense * 0.72 + skills.dotSize * 0.08
@@ -9,8 +9,8 @@ function createFighters(side, skills, width, height, requestedCount, idStart = 0
   return Array.from({ length: count }, (_, index) => ({
     id: `${side}-${idStart + index}`,
     side,
-    x: isLeft ? randomBetween(25, width * 0.31) : randomBetween(width * 0.69, width - 25),
-    y: randomBetween(28, height - 28),
+    x: spawnPoint ? clamp(spawnPoint.x + randomBetween(-28, 28), 12, width - 12) : isLeft ? randomBetween(25, width * 0.31) : randomBetween(width * 0.69, width - 25),
+    y: spawnPoint ? clamp(spawnPoint.y + randomBetween(-28, 28), 12, height - 12) : randomBetween(28, height - 28),
     vx: 0,
     vy: 0,
     health: maxHealth,
@@ -45,6 +45,10 @@ export function createBattle(configA, configB, width, height, options = {}) {
       energy: { A: 0, B: 0 },
       speedUntil: { A: 0, B: 0 },
       shieldUntil: { A: 0, B: 0 },
+      burstUntil: { A: 0, B: 0 },
+      reverseUntil: { A: 0, B: 0 },
+      rally: { A: null, B: null },
+      zones: [],
       nextFighterId: { A: 1000, B: 1000 },
       lastPowerUp: null,
     } : null,
@@ -149,6 +153,28 @@ export function stepBattle(state, deltaSeconds) {
       const luck = state.configs[side].skills.luck ?? 50
       state.commander.energy[side] = clamp(state.commander.energy[side] + dt * 2 * (1 + luck / 500), 0, 100)
     }
+    for (const zone of state.commander.zones) {
+      if (zone.type === 'heal') {
+        for (const fighter of state.fighters) {
+          if (fighter.side === zone.side && Math.hypot(fighter.x - zone.x, fighter.y - zone.y) < zone.radius) {
+            fighter.health = Math.min(fighter.maxHealth, fighter.health + fighter.maxHealth * 0.07 * dt)
+            fighter.glow = Math.max(fighter.glow, 0.08)
+          }
+        }
+      } else if (zone.type === 'airStrike' && !zone.exploded && state.elapsed >= zone.detonateAt) {
+        zone.exploded = true
+        zone.until = state.elapsed + 0.55
+        const enemySide = zone.side === 'A' ? 'B' : 'A'
+        for (const fighter of state.fighters) {
+          if (fighter.side === enemySide && Math.hypot(fighter.x - zone.x, fighter.y - zone.y) < zone.radius) {
+            fighter.health -= 58
+            fighter.glow = 0.35
+          }
+        }
+        events.push({ type: 'airStrikeExplosion', x: zone.x, y: zone.y, side: zone.side })
+      }
+    }
+    state.commander.zones = state.commander.zones.filter((zone) => state.elapsed < zone.until)
   }
 
   for (const fighter of state.fighters) {
@@ -157,7 +183,14 @@ export function stepBattle(state, deltaSeconds) {
     const enemies = state.fighters.filter(
       (candidate) => candidate.side !== fighter.side && candidate.health > 0,
     )
-    const speedMultiplier = state.commander && state.elapsed < state.commander.speedUntil[fighter.side] ? 1.8 : 1
+    const speedBoost = state.commander && state.elapsed < state.commander.speedUntil[fighter.side] ? 1.8 : 1
+    const burstBoost = state.commander && state.elapsed < state.commander.burstUntil[fighter.side] ? 2.15 : 1
+    const trapped = state.commander?.zones.some((zone) =>
+      zone.type === 'trap'
+      && zone.side !== fighter.side
+      && Math.hypot(fighter.x - zone.x, fighter.y - zone.y) < zone.radius,
+    )
+    const speedMultiplier = speedBoost * burstBoost * (trapped ? 0.34 : 1)
     const movementSpeed = (14 + skills.speed * 0.34) * speedMultiplier
     const directness = 0.76 + skills.intelligence / 420
     fighter.retreatCooldown -= dt
@@ -169,6 +202,12 @@ export function stepBattle(state, deltaSeconds) {
       const retreatSpeed = movementSpeed * 1.15
       const distanceToSafety = moveToward(fighter, fighter.retreatX, fighter.retreatY, retreatSpeed, 0.9, dt, state)
       if (distanceToSafety < 16) fighter.retreatTimer = Math.min(fighter.retreatTimer, 0.35)
+      continue
+    }
+
+    const rally = state.commander?.rally[fighter.side]
+    if (rally && state.elapsed < rally.until && Math.hypot(fighter.x - rally.x, fighter.y - rally.y) > 24) {
+      moveToward(fighter, rally.x, rally.y, movementSpeed * 1.12, 0.94, dt, state)
       continue
     }
 
@@ -191,6 +230,12 @@ export function stepBattle(state, deltaSeconds) {
 
     const target = findTarget(fighter, enemies, skills.intelligence)
     if (!target) continue
+    if (state.commander && state.elapsed < state.commander.reverseUntil[fighter.side]) {
+      const awayX = clamp(fighter.x + (fighter.x - target.x) * 2, 12, state.width - 12)
+      const awayY = clamp(fighter.y + (fighter.y - target.y) * 2, 12, state.height - 12)
+      moveToward(fighter, awayX, awayY, movementSpeed, directness, dt, state)
+      continue
+    }
     const distance = moveToward(fighter, target.x, target.y, movementSpeed, directness, dt, state)
 
     if (distance < 12 && fighter.cooldown <= 0) {
@@ -225,6 +270,15 @@ export const commanderPowerUps = {
   heal: { label: 'HEAL SWARM!', cost: 25 },
   tech: { label: 'TECH BLAST!', cost: 40 },
   chaos: { label: 'CHAOS EVENT!', cost: 50 },
+}
+
+export const commanderTapModes = {
+  deploy: { label: 'TROOPS DEPLOYED!', cost: 15 },
+  rally: { label: 'RALLY!', cost: 10 },
+  healZone: { label: 'HEAL ZONE!', cost: 20 },
+  airStrike: { label: 'AIR STRIKE!', cost: 35 },
+  trap: { label: 'TRAP!', cost: 25 },
+  chaosTap: { label: 'CHAOS!', cost: 40 },
 }
 
 function centerOf(fighters, fallbackX, fallbackY) {
@@ -324,6 +378,78 @@ export function applyCommanderPowerUp(state, side, powerUp) {
     label: powerUp === 'chaos' ? `CHAOS EVENT! ${detail}` : detail,
   })
   return { ok: true, events, detail, powerUp, side }
+}
+
+export function applyCommanderTapAction(state, side, tapMode, x, y) {
+  const definition = commanderTapModes[tapMode]
+  if (!state.commander || state.winner || !definition || !['A', 'B'].includes(side)) return { ok: false, events: [] }
+  const point = { x: clamp(x, 8, state.width - 8), y: clamp(y, 8, state.height - 8) }
+  const marker = { type: 'targetMarker', ...point, side }
+  if (state.commander.energy[side] < definition.cost) {
+    return {
+      ok: false,
+      reason: 'energy',
+      events: [marker, { type: 'commanderText', ...point, side, label: 'Not enough energy!' }],
+    }
+  }
+
+  state.commander.energy[side] -= definition.cost
+  const enemySide = side === 'A' ? 'B' : 'A'
+  const events = [marker]
+  let detail = definition.label
+
+  if (tapMode === 'deploy') {
+    const count = Math.floor(randomBetween(3, 9))
+    const fighters = createFighters(side, state.configs[side].skills, state.width, state.height, count, state.commander.nextFighterId[side], point)
+    state.commander.nextFighterId[side] += count
+    state.fighters.push(...fighters)
+    state.initialHealth[side] += fighters.reduce((sum, fighter) => sum + fighter.maxHealth, 0)
+    events.push({ type: 'portal', ...point, side })
+    detail = `${definition.label} +${count}`
+  } else if (tapMode === 'rally') {
+    state.commander.rally[side] = { ...point, until: state.elapsed + 5 }
+  } else if (tapMode === 'healZone') {
+    state.commander.zones.push({ type: 'heal', ...point, side, radius: 92, until: state.elapsed + 4 })
+  } else if (tapMode === 'airStrike') {
+    state.commander.zones.push({ type: 'airStrike', ...point, side, radius: 105, detonateAt: state.elapsed + 0.7, until: state.elapsed + 1.25, exploded: false })
+  } else if (tapMode === 'trap') {
+    state.commander.zones.push({ type: 'trap', ...point, side, radius: 90, until: state.elapsed + 5 })
+  } else if (tapMode === 'chaosTap') {
+    const chaos = ['LIGHTNING!', 'SHOCKWAVE!', 'CLONE BURST!', 'SPEED BURST!', 'REVERSE CONFUSION!']
+    detail = chaos[Math.floor(Math.random() * chaos.length)]
+    if (detail === 'LIGHTNING!') {
+      for (const fighter of state.fighters) {
+        if (fighter.side === enemySide && Math.hypot(fighter.x - point.x, fighter.y - point.y) < 75) fighter.health -= 62
+      }
+      events.push({ type: 'lightning', ...point, side })
+    } else if (detail === 'SHOCKWAVE!') {
+      for (const fighter of state.fighters) {
+        const distance = Math.max(1, Math.hypot(fighter.x - point.x, fighter.y - point.y))
+        if (fighter.side === enemySide && distance < 150) {
+          fighter.health -= 24
+          fighter.vx += ((fighter.x - point.x) / distance) * 12
+          fighter.vy += ((fighter.y - point.y) / distance) * 12
+        }
+      }
+      events.push({ type: 'shockwave', ...point, side })
+    } else if (detail === 'CLONE BURST!') {
+      const count = Math.floor(randomBetween(4, 8))
+      const clones = createFighters(side, state.configs[side].skills, state.width, state.height, count, state.commander.nextFighterId[side], point)
+      state.commander.nextFighterId[side] += count
+      clones.forEach((fighter) => { fighter.health *= 0.55; fighter.maxHealth *= 0.55 })
+      state.fighters.push(...clones)
+      state.initialHealth[side] += clones.reduce((sum, fighter) => sum + fighter.maxHealth, 0)
+      events.push({ type: 'portal', ...point, side })
+    } else if (detail === 'SPEED BURST!') {
+      state.commander.burstUntil[side] = state.elapsed + 4
+    } else {
+      state.commander.reverseUntil[enemySide] = state.elapsed + 3.5
+    }
+  }
+
+  state.commander.lastPowerUp = { side, powerUp: tapMode, detail }
+  events.push({ type: 'commanderText', ...point, side, label: tapMode === 'chaosTap' ? `CHAOS! ${detail}` : detail })
+  return { ok: true, events, detail, powerUp: tapMode, side }
 }
 
 export function getCommanderStatus(state) {

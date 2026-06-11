@@ -23,6 +23,7 @@ export default function App() {
   const [runningMode, setRunningMode] = useState('standard')
   const [commanderStatus, setCommanderStatus] = useState(null)
   const [lastCommanderEvent, setLastCommanderEvent] = useState(null)
+  const [selectedTapMode, setSelectedTapMode] = useState('deploy')
   const battleSequence = useRef(0)
   const countdownTimer = useRef(null)
   const arenaRef = useRef(null)
@@ -196,8 +197,11 @@ export default function App() {
           onFinish={setWinnerSide}
           countdown={countdown}
           commanderMode={runningMode === 'commander'}
+          commanderInteractionEnabled={activeMode === 'commander' && runningMode === 'commander'}
+          selectedTapMode={selectedTapMode}
           onCommanderReady={(action) => { commanderAction.current = action }}
           onCommanderStatus={setCommanderStatus}
+          onCommanderEvent={setLastCommanderEvent}
         />
       </div>
 
@@ -209,6 +213,8 @@ export default function App() {
           status={commanderStatus ?? undefined}
           battleActive={runningMode === 'commander' && Boolean(battleId)}
           lastEvent={lastCommanderEvent}
+          selectedTapMode={selectedTapMode}
+          onSelectTapMode={setSelectedTapMode}
         />
       )}
 

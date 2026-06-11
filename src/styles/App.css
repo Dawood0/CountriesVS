@@ -328,6 +328,31 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; filter: no
   background: radial-gradient(circle at center, rgba(87, 76, 210, 0.14), rgba(5, 8, 20, 0.58));
 }
 .commander-live-below { margin: 14px 0 28px; box-shadow: 0 18px 55px rgba(0, 0, 0, 0.22); }
+.commander-tap-panel {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(150, 164, 220, 0.13);
+}
+.commander-tap-panel > div:first-child strong { display: block; margin-top: 5px; color: #d9def0; font-size: 0.76rem; }
+.commander-tap-modes { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.commander-tap-mode {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 8px 5px;
+  color: #9da8c9;
+  border-color: rgba(150, 164, 220, 0.13);
+  background: rgba(5, 8, 20, 0.6);
+  text-align: center;
+}
+.commander-tap-mode span { color: #aab4ff; font-size: 1.15rem; text-shadow: 0 0 10px #7c8cff; }
+.commander-tap-mode strong { margin-top: 3px; overflow: hidden; width: 100%; font-size: 0.56rem; text-overflow: ellipsis; white-space: nowrap; }
+.commander-tap-mode small { margin-top: 2px; color: #737f9f; font-size: 0.5rem; }
+.commander-tap-mode.active { color: #ffffff; border-color: #8a98ff; background: linear-gradient(145deg, rgba(83, 104, 255, 0.28), rgba(212, 144, 255, 0.14)); box-shadow: 0 0 18px rgba(124, 140, 255, 0.2); }
 .commander-live-heading { margin-bottom: 14px; }
 .commander-live-heading h3 { margin: 5px 0 0; font-family: "Chakra Petch", sans-serif; }
 .commander-live-heading > strong {
@@ -787,6 +812,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; filter: no
 .battle-health.side-b .health-track { transform: scaleX(-1); }
 .health-track i { display: block; height: 100%; border-radius: inherit; transition: width 0.25s ease; box-shadow: 0 0 12px currentColor; }
 canvas { display: block; width: 100%; aspect-ratio: 900 / 470; background: #080b17; }
+canvas.commander-arena-active { cursor: crosshair; touch-action: none; }
 .arena-empty { position: absolute; inset: 245px 0 0; display: grid; place-content: center; text-align: center; pointer-events: none; }
 .arena-empty span { color: #7586ff; font-size: 3rem; text-shadow: 0 0 25px #5368ff; }
 .arena-empty h2 { margin: 10px 0 4px; }
@@ -989,6 +1015,8 @@ canvas { display: block; width: 100%; aspect-ratio: 900 / 470; background: #080b
   .primary-button { order: -1; width: 100%; }
   .world-randomizer-header { align-items: flex-start; flex-direction: column; }
   .commander-heading, .commander-live-heading { align-items: flex-start; flex-direction: column; }
+  .commander-tap-panel { grid-template-columns: 1fr; }
+  .commander-tap-modes { grid-template-columns: repeat(3, 1fr); }
   .commander-start { width: 100%; }
   .commander-sides { grid-template-columns: 1fr; }
   .commander-live-heading > strong { max-width: 100%; text-align: left; }
@@ -1122,6 +1150,18 @@ canvas { display: block; width: 100%; aspect-ratio: 900 / 470; background: #080b
 .phone-layout .commander-heading p { font-size: 0.78rem; }
 .phone-layout .commander-setup { margin-bottom: 16px; }
 .phone-layout .commander-live-panel { padding: 10px; }
+.phone-layout .commander-tap-panel { gap: 9px; margin-bottom: 12px; padding-bottom: 12px; }
+.phone-layout .commander-tap-modes {
+  display: flex;
+  gap: 7px;
+  margin-inline: -10px;
+  padding: 0 10px 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.phone-layout .commander-tap-modes::-webkit-scrollbar { display: none; }
+.phone-layout .commander-tap-mode { flex: 0 0 104px; min-height: 58px; }
 .phone-layout .commander-live-heading { gap: 6px; }
 .phone-layout .commander-live-heading h3 { font-size: 1rem; }
 .phone-layout .commander-side { padding: 10px; }
@@ -1152,6 +1192,7 @@ canvas { display: block; width: 100%; aspect-ratio: 900 / 470; background: #080b
 .phone-layout .battle-health > div:first-child strong { overflow: hidden; max-width: 48%; text-overflow: ellipsis; white-space: nowrap; }
 .phone-layout .health-track { height: 10px; }
 .phone-layout canvas { min-height: 220px; object-fit: cover; }
+.phone-layout canvas.commander-arena-active { min-height: 0; object-fit: fill; }
 .phone-layout .arena-empty { inset: 142px 0 0; padding: 16px; }
 .phone-layout .arena-empty h2 { font-size: 1.05rem; }
 .phone-layout .battle-countdown { width: 112px; height: 112px; font-size: 4.3rem; }
